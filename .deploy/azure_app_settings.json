@@ -1,0 +1,187 @@
+[
+  {
+    "name": "BLOB_STAGING_PREFIX",
+    "value": "staging/",
+    "slotSetting": false
+  },
+  {
+    "name": "BLOB_PRODUCAO_PREFIX",
+    "value": "producao/",
+    "slotSetting": false
+  },
+  {
+    "name": "AI_PROVIDER_CHAIN",
+    "value": "openrouter,gemini_nativo,ollama,azure_openai",
+    "slotSetting": false
+  },
+  {
+    "name": "OPENROUTER_API_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "OPENROUTER_BASE_URL",
+    "value": "https://openrouter.ai/api/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "OPENROUTER_MODEL",
+    "value": "google/gemini-2.5-flash",
+    "slotSetting": false
+  },
+  {
+    "name": "GEMINI_API_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "GEMINI_MODEL",
+    "value": "gemini-2.5-flash",
+    "slotSetting": false
+  },
+  {
+    "name": "OLLAMA_BASE_URL",
+    "value": "http://localhost:11434",
+    "slotSetting": false
+  },
+  {
+    "name": "OLLAMA_MODEL",
+    "value": "glm-ocr:latest",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_OPENAI_ENDPOINT",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_OPENAI_API_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_OPENAI_DEPLOYMENT",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_OPENAI_API_VERSION",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "EMAIL_CONNECTION_STRING",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "EMAIL_SENDER_ADDRESS",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_OAUTH_URL",
+    "value": "https://api-prd.ecad.org.br/oauth-rfc/v1/access-token",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_BASE_URL",
+    "value": "https://backend.ecad.org.br/arrecadacao/api-show",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_AUTHORIZATION",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_CLIENT_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_CLIENT_SECRET",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_USER",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_VERIFICATION_ENABLED",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_TIMEOUT_SECONDS",
+    "value": "10",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_MAX_RETRIES",
+    "value": "3",
+    "slotSetting": false
+  },
+  {
+    "name": "SGA_RATE_LIMIT_DELAY_MS",
+    "value": "500",
+    "slotSetting": false
+  },
+  {
+    "name": "PROXY_SERVER",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "PROXY_USERNAME",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "PROXY_PASSWORD",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "HEADLESS_BROWSER",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "DELAY_MIN_MS",
+    "value": "3000",
+    "slotSetting": false
+  },
+  {
+    "name": "DELAY_MAX_MS",
+    "value": "7000",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_POSTS_POR_PERFIL",
+    "value": "30",
+    "slotSetting": false
+  },
+  {
+    "name": "ROTACAO_CONTA_MIN_PERFIS",
+    "value": "15",
+    "slotSetting": false
+  },
+  {
+    "name": "ROTACAO_CONTA_MAX_PERFIS",
+    "value": "20",
+    "slotSetting": false
+  },
+  {
+    "name": "CONTROL_CENTER_SCHEDULING_ENABLED",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "AGENDAMENTO_INTERVAL_MS",
+    "value": "60000",
+    "slotSetting": false
+  }
+]

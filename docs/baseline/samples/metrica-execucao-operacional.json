@@ -1,0 +1,16 @@
+{
+  "id": "99999999-9999-9999-9999-999999999999",
+  "id_execucao": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "componente": "processingEngine",
+  "operacao": "processar_documento_capturado",
+  "duracao_total_ms": 5000,
+  "sucesso": true,
+  "resultado": "Documento processado com sucesso",
+  "itens_processados": 1,
+  "itens_descobertos": 1,
+  "itens_filtrados": 0,
+  "itens_baixados": 1,
+  "itens_persistidos": 1,
+  "id_fonte_captacao": "44444444-4444-4444-4444-444444444444",
+  "timestamp": "2024-07-15T10:00:05-03:00"
+}

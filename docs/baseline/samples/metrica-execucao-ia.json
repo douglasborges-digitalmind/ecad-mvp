@@ -1,0 +1,18 @@
+{
+  "id": "77777777-7777-7777-7777-777777777777",
+  "id_execucao": "88888888-8888-8888-8888-888888888888",
+  "componente": "documentScraper",
+  "tipo_operacao": "extracaoSemantica",
+  "tipo_documento": "contratoMusical",
+  "modelo_utilizado": "gemini-2.0-flash",
+  "provider": "geminiNativo",
+  "tokens_input": 1500,
+  "tokens_output": 300,
+  "custo_usd": 0.0015,
+  "tamanho_input_chars": 4500,
+  "duracao_chamada_ms": 2500,
+  "id_fonte_captacao": "44444444-4444-4444-4444-444444444444",
+  "sucesso": true,
+  "resultado_descarte": false,
+  "timestamp": "2024-07-15T10:00:02-03:00"
+}

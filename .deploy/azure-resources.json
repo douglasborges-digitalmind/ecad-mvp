@@ -1,0 +1,74 @@
+{
+  "resourceGroup": "DigitalMind-Ecad-Dev",
+  "location": "brazilsouth",
+  "namePrefix": "ecad-java",
+  "nameSuffix": "88266f",
+  "cosmosAccountName": "ecad-java-cosmos-88266f",
+  "cosmosDatabaseName": "ecad-captacao",
+  "storageAccountName": "ecadjava88266fstg",
+  "eventHubsNamespace": "ecad-java-evh-88266f",
+  "containerRegistryName": "ecadjava88266facr",
+  "containerAppsEnvironment": "ecad-java-aca-env-88266f",
+  "logAnalyticsWorkspace": "ecad-java-law-88266f",
+  "blobContainers": [
+    "captura-documentos",
+    "event-hubs-checkpoints",
+    "instagram-sessions"
+  ],
+  "eventHubs": [
+    "scraping_commands",
+    "captured_documents"
+  ],
+  "consumerGroups": [
+    {
+      "Name": "cg-document-scraper",
+      "EventHub": "scraping_commands"
+    },
+    {
+      "Name": "cg-processing-engine",
+      "EventHub": "captured_documents"
+    }
+  ],
+  "cosmosContainers": [
+    {
+      "Name": "fontes-captacao",
+      "PartitionKey": "/unidade_ecad"
+    },
+    {
+      "Name": "documentos",
+      "PartitionKey": "/id"
+    },
+    {
+      "Name": "eventos",
+      "PartitionKey": "/municipio"
+    },
+    {
+      "Name": "criterios-extracao",
+      "PartitionKey": "/tipoDocumento"
+    },
+    {
+      "Name": "contas-instagram",
+      "PartitionKey": "/id"
+    },
+    {
+      "Name": "sequenciais",
+      "PartitionKey": "/ano"
+    },
+    {
+      "Name": "metricas_ia",
+      "PartitionKey": "/componente"
+    },
+    {
+      "Name": "metricas_operacionais",
+      "PartitionKey": "/componente"
+    },
+    {
+      "Name": "municipio-unidade",
+      "PartitionKey": "/uf"
+    },
+    {
+      "Name": "destinatarios",
+      "PartitionKey": "/id"
+    }
+  ]
+}

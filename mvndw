@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+MVND_DIST_DIR=${MVNDW_DIST_DIR:-}
+
+if [ "$#" -ge 1 ] && [ "$1" = "--mvnd-dir" ]; then
+    if [ "$#" -lt 2 ]; then
+        echo "O parametro --mvnd-dir exige o nome da pasta do mvnd." >&2
+        exit 1
+    fi
+    MVND_DIST_DIR=$2
+    shift 2
+fi
+
+if [ -z "$MVND_DIST_DIR" ]; then
+    for candidate in "$SCRIPT_DIR"/maven-mvnd-*; do
+        if [ -d "$candidate" ]; then
+            MVND_DIST_DIR=$(basename "$candidate")
+            break
+        fi
+    done
+fi
+
+if [ -z "$MVND_DIST_DIR" ]; then
+    echo "mvnd wrapper nao encontrou nenhuma pasta maven-mvnd-* em '$SCRIPT_DIR'. Informe --mvnd-dir ou MVNDW_DIST_DIR." >&2
+    exit 1
+fi
+
+MVND_CMD="$SCRIPT_DIR/$MVND_DIST_DIR/bin/mvnd"
+
+if [ ! -x "$MVND_CMD" ]; then
+    echo "mvnd wrapper nao encontrou executavel em '$MVND_CMD'." >&2
+    exit 1
+fi
+
+exec "$MVND_CMD" "$@"

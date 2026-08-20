@@ -1,0 +1,15 @@
+{
+  "id": "33333333-3333-3333-3333-333333333333",
+  "url_origem": "https://example.org/baseline/contrato-musical/documento.pdf",
+  "url_staging_interno": "https://storage.internal/ecad/BA/SALVADOR/2024/07/documento.pdf",
+  "instrucoes_captura": "Capturar documento de contrato musical",
+  "hash_conteudo": "abc123def456",
+  "id_fonte_captacao": "11111111-1111-1111-1111-111111111111",
+  "tipo": "contratoMusical",
+  "metadados": {
+    "CONTENT_TYPE": "application/pdf",
+    "NOME_ARQUIVO_ORIGINAL": "contrato-musical-2024.pdf",
+    "EXTENSAO_ARQUIVO": ".pdf"
+  },
+  "timestamp": "2024-07-15T10:30:00-03:00"
+}

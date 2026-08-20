@@ -1,0 +1,56 @@
+# Dockerfile base parametrizável para todos os módulos ECAD exceto document-scraper.
+# USO: docker build --build-arg MODULE_NAME=ecad-processing-engine -f Dockerfile.base .
+#
+# Otimizações:
+#   - Cache de dependências Maven em camada separada (S7)
+#   - Nome do JAR parametrizável via ARG (S8)
+#   - Runtime como usuário não-root (S2)
+#   - HEALTHCHECK via Actuator (S22)
+FROM maven:3.9-eclipse-temurin-21 AS build
+ARG MODULE_NAME=ecad-processing-engine
+ARG JAR_VERSION=0.1.0-SNAPSHOT
+WORKDIR /workspace
+
+# Camada 1: copia apenas os POMs e resolve dependências.
+# Como os POMs mudam raramente, esta camada fica em cache entre builds,
+# evitando re-download de todas as dependências a cada mudança de código.
+COPY pom.xml ./
+COPY ecad-shared/pom.xml ecad-shared/
+COPY ecad-control-center/pom.xml ecad-control-center/
+COPY ecad-processing-engine/pom.xml ecad-processing-engine/
+COPY ecad-document-scraper/pom.xml ecad-document-scraper/
+COPY ecad-sga-status-sync/pom.xml ecad-sga-status-sync/
+COPY ecad-deduplicator/pom.xml ecad-deduplicator/
+COPY ecad-log-analyser/pom.xml ecad-log-analyser/
+COPY ecad-integration-tests/pom.xml ecad-integration-tests/
+RUN --mount=type=cache,target=/root/.m2 mvn -pl ${MODULE_NAME} -am -DskipTests install -Dspring-boot.repackage.skip=true
+
+# Camada 2: copia o código-fonte e faz o build do módulo.
+# A invalidação de cache só acontece quando o código muda (não a cada build).
+COPY . .
+RUN --mount=type=cache,target=/root/.m2 mvn -pl ${MODULE_NAME} -am -Dmaven.test.skip=true package
+
+# Camada de runtime: imagem JRE enxuta, usuário não-root, healthcheck.
+FROM eclipse-temurin:21-jre-jammy
+ARG MODULE_NAME=ecad-processing-engine
+ARG JAR_VERSION=0.1.0-SNAPSHOT
+WORKDIR /app
+
+# Cria usuário não-root e ajusta permissões do diretório de trabalho.
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser \
+    && chown -R appuser:appuser /app
+
+# Nome do JAR parametrizado: se a versão no pom.xml mudir, basta passar
+# --build-arg JAR_VERSION=<nova-versão> sem editar o Dockerfile.
+COPY --from=build /workspace/${MODULE_NAME}/target/${MODULE_NAME}-${JAR_VERSION}.jar /app/app.jar
+
+USER appuser
+
+EXPOSE 8080
+
+# Healthcheck usa o endpoint do Spring Boot Actuator.
+# Requer curl na imagem — instalado por padrão no eclipse-temurin:21-jre-jammy.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

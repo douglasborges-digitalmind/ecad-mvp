@@ -1,0 +1,41 @@
+{
+  "id": "66666666-6666-6666-6666-666666666666",
+  "codigo_evento": "2024-00001",
+  "titulo": "Festival de Musica Local",
+  "data_inicio": "2024-08-01T20:00:00-03:00",
+  "data_termino": "2024-08-03T23:00:00-03:00",
+  "local": "Praca Central",
+  "municipio": "Salvador",
+  "uf": "BA",
+  "unidade_ecad": "BA",
+  "hora": "20:00",
+  "promotor_cnpj": "12345678000199",
+  "promotor_nome": "Prefeitura Municipal de Salvador",
+  "promotor_contato": "contato@salvador.ba.gov.br",
+  "interpretes": ["Banda Local"],
+  "tipo_musica": "aoVivo",
+  "cobranca_ingresso": "sim",
+  "valor_ingresso": 0.0,
+  "capacidade_publico": 5000,
+  "status": "agendado",
+  "status_sga": "inedito",
+  "nivel_completude": "alto",
+  "fonte_primaria": "agregadorGov",
+  "data_descoberta": "2024-07-15T10:00:00-03:00",
+  "data_atualizacao": "2024-07-15T10:00:00-03:00",
+  "observacoes_ia": "Evento extraido do diario oficial",
+  "id_fonte_captacao": "44444444-4444-4444-4444-444444444444",
+  "evidencias": [
+    {
+      "sequencia": 1,
+      "tipo": "contratoMusical",
+      "link_fonte": "https://example.org/baseline/festival-local",
+      "url_armazenamento_interno": "https://storage.internal/ecad/evidencias/evid-001.pdf",
+      "data_captura": "2024-07-15T10:00:00-03:00",
+      "hash_arquivo": "def456abc789",
+      "json_bruto_url_interna": "https://storage.internal/ecad/evidencias/evid-001.json",
+      "evidencia_visual_url_interna": "https://storage.internal/ecad/evidencias/evid-001.png",
+      "observacoes_ia": "Contrato musical extraido com alta confianca"
+    }
+  ]
+}

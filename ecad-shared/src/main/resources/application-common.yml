@@ -1,0 +1,17 @@
+# Configuração comum a todos os módulos ECAD Java.
+# Importada via spring.config.import=optional:classpath:application-common.yml em cada módulo.
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+
+ecad:
+  local-development:
+    enabled: ${LOCAL_DEVELOPMENT_ENABLED:true}
+    root: ${LOCAL_DEVELOPMENT_ROOT:.localdev}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [correlation_id=%X{correlation_id:-no-correlation}] [doc_id=%X{documento_id:-no-doc}] - %msg%n"

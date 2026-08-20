@@ -1,0 +1,30 @@
+{
+  "id": "44444444-4444-4444-4444-444444444444",
+  "nome": "Prefeitura de Salvador",
+  "canais_scraping": [
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "url": "https://example.org/baseline/diario-oficial",
+      "instrucoes_scraping_ia": "Buscar contratos musicais no diario oficial",
+      "palavras_chaves_busca": ["contrato", "musical"],
+      "metadados": {},
+      "ultima_leitura": null,
+      "frequencia": {
+              "tipo": "diario",
+              "dias_da_semana": [],
+              "horario": "06:00",
+              "proxima_execucao": "2024-07-16T06:00:00-03:00",
+              "intervalo_horas": null
+            },
+      "criado_em": "2024-01-01T00:00:00-03:00",
+      "atualizado_em": "2024-07-15T10:00:00-03:00",
+      "ativo": true,
+      "tipo": "agregadorGov"
+    }
+  ],
+  "metadados": {},
+  "criado_em": "2024-01-01T00:00:00-03:00",
+  "atualizado_em": "2024-07-15T10:00:00-03:00",
+  "unidade_ecad": "BA",
+  "base_storage_path": "BA/SALVADOR"
+}

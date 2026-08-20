@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: ecad-deduplicator
+  main:
+    web-application-type: none
+  config:
+    import: optional:classpath:application-common.yml
+  profiles:
+    default: local

@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: ecad-sga-status-sync
+  main:
+    web-application-type: none
+  config:
+    import: optional:classpath:application-common.yml
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+  profiles:
+    default: local

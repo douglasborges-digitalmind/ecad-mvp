@@ -1,0 +1,6 @@
+**/target/
+.localdev/
+.phase*/
+*.log
+.env
+.fake
