@@ -57,7 +57,18 @@
     Filtra eventos por status (ex: realizado, planejado, cancelado).
 
 .PARAMETER Limite
-    Numero maximo de itens a exibir por listagem (default: 50).
+    Numero maximo de itens a exibir por listagem (status/eventos). Default: 50.
+    NAO controla o tamanho do lote PNCP no action 'run' — use -LimiteLote para isso.
+
+.PARAMETER LimiteLote
+    Numero maximo de fontes (prefeituras) a processar por lote no action 'run'.
+    Default: 1000. Se o total de prefeituras elegiveis exceder este valor,
+    o script dispara varios lotes automaticamente (paginacao via offset),
+    cobrindo todas as prefeituras. Use um valor menor para reduzir carga.
+
+.PARAMETER OffsetLote
+    Indice inicial (zero-based) para paginacao manual do lote PNCP.
+    Em geral nao precisa ser informado — a paginacao e automatica.
 
 .PARAMETER DryRun
     Mostra o que seria executado (URLs e methods) sem fazer chamadas reais.
@@ -114,6 +125,8 @@ param(
     [Guid]$JobId,
     [string]$StatusEvento,
     [int]$Limite = 50,
+    [int]$LimiteLote = 1000,
+    [int]$OffsetLote,
     [Switch]$DryRun,
     [int]$TimeoutSec = 300,
     [string]$ControlCenterUrl,
@@ -285,26 +298,69 @@ function Invoke-Run {
         return
     }
 
-    $body = @{}
-    if ($Uf) { $body.uf = $Uf }
-    if ($UnidadeEcad) { $body.unidade_ecad = $UnidadeEcad }
-    if ($Limite -and $Limite -gt 0) { $body.limite = $Limite }
+    # Conta fontes elegiveis para decidir se precisa paginar
+    $fontesPath = "/api/fontes"
+    $fontesQuery = @()
+    if ($UnidadeEcad) { $fontesQuery += "unidade_ecad=$UnidadeEcad" }
+    if ($Uf) { $fontesQuery += "uf=$Uf" }
+    if ($fontesQuery.Count -gt 0) { $fontesPath += "?" + ($fontesQuery -join "&") }
+    $todasFontes = Invoke-Api -BaseUrl $ccUrl -Path $fontesPath
+    $totalElegiveis = 0
+    if ($todasFontes) {
+        $fontesArr = if ($todasFontes -is [array]) { $todasFontes } else { @($todasFontes) }
+        $totalElegiveis = $fontesArr.Count
+    }
+    Write-Info "Total de fontes cadastradas (filtro aplicado): $totalElegiveis"
+
+    # Paginacao automatica: se total exceder LimiteLote, dispara varios lotes
+    $offsetInicial = if ($OffsetLote -and $OffsetLote -gt 0) { $OffsetLote } else { 0 }
+    $offsetAtual = $offsetInicial
+    $loteNum = 0
+    $jobsIniciados = @()
+
+    if ($totalElegiveis -le $LimiteLote) {
+        Write-Info "Unico lote suficiente ($totalElegiveis <= $LimiteLote) — sem paginacao"
+    } else {
+        Write-Info "Paginacao automatica: $totalElegiveis fontes em lotes de $LimiteLote"
+    }
+
+    while ($offsetAtual -lt $totalElegiveis) {
+        $loteNum++
+        $body = @{
+            limite = $LimiteLote
+            offset = $offsetAtual
+        }
+        if ($Uf) { $body.uf = $Uf }
+        if ($UnidadeEcad) { $body.unidade_ecad = $UnidadeEcad }
+
+        Write-Info "Lote $loteNum — offset=$offsetAtual limite=$LimiteLote"
+        $job = Invoke-Api -Method POST -BaseUrl $ccUrl -Path "/api/fontes/executar-lote-pncp/async" -Body $body -ApiTimeoutSec $TimeoutSec
+        if ($DryRun) {
+            Write-Warn "[DRY-RUN] Lote $loteNum nao executado."
+        } elseif ($job -and ($job.job_id -or $job.jobId)) {
+            $jid = if ($job.job_id) { $job.job_id } else { $job.jobId }
+            Write-Ok "Lote $loteNum iniciado: jobId=$jid (offset=$offsetAtual)"
+            $jobsIniciados += [PSCustomObject]@{ jobId = $jid }
+        } else {
+            Write-Err "Falha no lote $loteNum (offset=$offsetAtual)"
+            Write-Info "Verifique os logs: .\scripts\ecadexecute-azure.ps1 -Action logs -Service control-center"
+            break
+        }
+        $offsetAtual += $LimiteLote
+    }
 
     if ($Uf) { Write-Info "Filtrando por UF: $Uf" }
     if ($UnidadeEcad) { Write-Info "Filtrando por unidade ECAD: $UnidadeEcad" }
 
-    $job = Invoke-Api -Method POST -BaseUrl $ccUrl -Path "/api/fontes/executar-lote-pncp/async" -Body $body -ApiTimeoutSec $TimeoutSec
-    if ($DryRun) {
-        Write-Warn "[DRY-RUN] Comando nao executado."
-    } elseif ($job -and $job.jobId) {
-        Write-Ok "Job assincrono iniciado: $($job.jobId)"
-        Write-Info "Para acompanhar: .\scripts\ecadexecute-azure.ps1 -Action status -JobId $($job.jobId)"
-    } elseif ($job) {
-        Write-Ok "Comando enviado. Resposta:"
-        Write-Host ($job | ConvertTo-Json -Depth 3) -ForegroundColor Green
-    } else {
-        Write-Err "Falha ao disparar processamento PNCP"
-        Write-Info "Verifique os logs: .\scripts\ecadexecute-azure.ps1 -Action logs -Service control-center"
+    if ($jobsIniciados.Count -gt 0) {
+        Write-Section "Resumo dos jobs disparados"
+        $jobsIniciados | ForEach-Object {
+            Write-Host "  Lote jobId: $($_.jobId) — acompanhe: .\scripts\ecadexecute-azure.ps1 -Action status -JobId $($_.jobId)" -ForegroundColor Green
+        }
+        Write-Info "Total de lotes: $($jobsIniciados.Count) | Fontes cobertas: $totalElegiveis"
+    } elseif (-not $DryRun) {
+        Write-Err "Nenhum job foi disparado."
+        Write-Info "Verifique: .\scripts\ecadexecute-azure.ps1 -Action logs -Service control-center"
     }
 }
 

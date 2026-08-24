@@ -49,7 +49,9 @@ public class FonteCaptacaoService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FonteCaptacaoService.class);
     private static final int MAX_AI_SEARCH_MAX_RESULTS = 100;
     private static final int MAX_LOTE_COMANDOS = 1000;
-    private static final int MAX_LOTE_FONTES_PNCP = 1000;
+    // Limite elevado para acomodar o universo de prefeituras PNCP (5400+).
+    // Anteriormente 1000, o que causava processamento parcial.
+    private static final int MAX_LOTE_FONTES_PNCP = 10000;
 
     private final FonteCaptacaoRepository repository;
     private final EventPublisher publisher;

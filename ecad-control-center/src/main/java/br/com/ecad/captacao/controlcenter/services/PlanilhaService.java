@@ -16,7 +16,6 @@ import br.com.ecad.captacao.shared.domain.entities.Evento;
 import br.com.ecad.captacao.shared.domain.enums.StatusSGA;
 import br.com.ecad.captacao.shared.infrastructure.repositories.DestinatarioRepository;
 import br.com.ecad.captacao.shared.infrastructure.repositories.EventoRepository;
-import br.com.ecad.captacao.shared.infrastructure.repositories.FonteCaptacaoRepository;
 import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CreationHelper;
@@ -42,7 +41,7 @@ public class PlanilhaService {
     private static final DateTimeFormatter DATA_BR = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private static final String SHEET_EVENTOS = "Eventos Capturados";
-    private static final String SHEET_EVIDENCIAS = "Evidencias";
+    private static final String SHEET_EVIDENCIAS = "Evidências";
     private static final String SHEET_RESUMO = "Resumo Executivo";
 
     private static final byte[] COR_IDENTIFICACAO = new byte[] {(byte) 31, (byte) 78, (byte) 121};
@@ -51,31 +50,28 @@ public class PlanilhaService {
     private static final byte[] COR_INTELIGENCIA = new byte[] {(byte) 76, (byte) 28, (byte) 110};
 
     private static final List<String> HEADERS_EVENTOS = List.of(
-        "Codigo_Evento", "Titulo", "Data_Inicio", "Data_Termino", "Local", "Municipio", "UF", "Unidade_ECAD", "Hora",
-        "Promotor_Nome", "Promotor_CNPJ", "Interpretes", "Tipo_Musica", "Capacidade_Publico",
-        "Fonte_Primaria", "Total_Evidencias", "Ver_Evidencias",
-        "Status", "Status_SGA", "Nivel_Completude", "Observacoes_IA");
-    private static final int FIM_IDENTIFICACAO = 9;
-    private static final int FIM_COMPLEMENTAR = 14;
-    private static final int FIM_EVIDENCIA = 17;
+        "ID_Evento", "Titulo_Evento", "Data_Realizacao", "Hora_Inicio", "Local_Evento", "Municipio", "UF",
+        "Unidade_ECAD", "Promotor", "Contato_Promotor", "Interprete_Principal", "Interpretes_Outros",
+        "Tipo_Musica", "Cobranca_Ingresso", "Valor_Ingresso", "Capacidade_Publico", "Qtd_Evidencias",
+        "Ver_Evidencias", "Status_Evento", "Status_SGA", "Nivel_Completude", "Fonte_Primaria",
+        "Data_Descoberta", "Data_Atualizacao", "Observacoes_IA");
+    private static final int FIM_IDENTIFICACAO = 8;
+    private static final int FIM_COMPLEMENTAR = 16;
+    private static final int FIM_EVIDENCIA = 18;
 
     private static final List<String> HEADERS_EVIDENCIAS = List.of(
-        "ID_Evento", "Codigo_Evento", "Seq", "Tipo_Evidencia", "URL_Origem",
-        "URL_Armazenamento_Interno", "Data_Captura", "Hash_Arquivo");
+        "ID_Evento", "Seq", "Tipo_Evidencia", "URL_Fonte", "URL_Blob_Storage", "Data_Captura");
 
     private final EventoRepository eventoRepository;
     private final DestinatarioRepository destinatarioRepository;
-    private final FonteCaptacaoRepository fonteCaptacaoRepository;
     private final EmailService emailService;
 
     public PlanilhaService(
         EventoRepository eventoRepository,
         DestinatarioRepository destinatarioRepository,
-        FonteCaptacaoRepository fonteCaptacaoRepository,
         EmailService emailService) {
         this.eventoRepository = eventoRepository;
         this.destinatarioRepository = destinatarioRepository;
-        this.fonteCaptacaoRepository = fonteCaptacaoRepository;
         this.emailService = emailService;
     }
 
@@ -90,9 +86,15 @@ public class PlanilhaService {
             var styles = SectionStyles.build(workbook);
             var eventosOrdenados = ordenarParaPlanilha(eventos);
 
-            var primeiraLinhaPorEvento = criarAbaEvidencias(workbook, eventosOrdenados, styles);
-            criarAbaEventos(workbook, eventosOrdenados, styles, primeiraLinhaPorEvento);
-            criarAbaResumo(workbook, eventosOrdenados, styles);
+            // Cria as abas na ordem do template (Eventos, Evidências, Resumo).
+            var sheetEventos = workbook.createSheet(SHEET_EVENTOS);
+            var sheetEvidencias = workbook.createSheet(SHEET_EVIDENCIAS);
+            var sheetResumo = workbook.createSheet(SHEET_RESUMO);
+
+            // Preenche Evidências primeiro para obter os números de linha dos Magic Links.
+            var primeiraLinhaPorEvento = preencherAbaEvidencias(sheetEvidencias, eventosOrdenados, styles);
+            preencherAbaEventos(sheetEventos, eventosOrdenados, styles, primeiraLinhaPorEvento);
+            preencherAbaResumo(sheetResumo, eventosOrdenados, styles);
 
             workbook.write(output);
             workbook.dispose();
@@ -143,12 +145,11 @@ public class PlanilhaService {
         return 2;
     }
 
-    private Map<String, Integer> criarAbaEvidencias(SXSSFWorkbook workbook, List<Evento> eventos, SectionStyles styles) {
-        var sheet = workbook.createSheet(SHEET_EVIDENCIAS);
+    private Map<String, Integer> preencherAbaEvidencias(SXSSFSheet sheet, List<Evento> eventos, SectionStyles styles) {
         criarHeader(sheet, HEADERS_EVIDENCIAS, styles.headerEvidencia);
 
         var primeiraLinha = new LinkedHashMap<String, Integer>();
-        var creationHelper = workbook.getCreationHelper();
+        var creationHelper = sheet.getWorkbook().getCreationHelper();
         var rowIndex = 1;
 
         for (var evento : eventos) {
@@ -159,14 +160,12 @@ public class PlanilhaService {
             primeiraLinha.put(nullToEmpty(evento.codigoEvento()), rowIndex + 1);
             for (var evidencia : evento.evidencias()) {
                 var row = sheet.createRow(rowIndex++);
-                write(row, 0, evento.id() == null ? "" : evento.id().toString());
-                write(row, 1, evento.codigoEvento());
-                write(row, 2, evidencia.sequencia());
-                write(row, 3, evidencia.tipo() == null ? "" : evidencia.tipo().jsonValue());
-                writeHyperlink(row, 4, evidencia.urlOrigem(), creationHelper, styles.hyperlink);
-                writeHyperlink(row, 5, evidencia.urlArmazenamentoInterno(), creationHelper, styles.hyperlink);
-                write(row, 6, format(evidencia.dataCaptura()));
-                write(row, 7, evidencia.hashArquivo());
+                write(row, 0, evento.codigoEvento());
+                write(row, 1, evidencia.sequencia());
+                write(row, 2, rotuloTipoEvidencia(evidencia.tipo()));
+                writeHyperlink(row, 3, evidencia.urlOrigem(), creationHelper, styles.hyperlink);
+                writeHyperlink(row, 4, evidencia.urlArmazenamentoInterno(), creationHelper, styles.hyperlink);
+                write(row, 5, format(evidencia.dataCaptura()));
             }
         }
 
@@ -175,134 +174,204 @@ public class PlanilhaService {
         return primeiraLinha;
     }
 
-    private void criarAbaEventos(
-        SXSSFWorkbook workbook,
+    private void preencherAbaEventos(
+        SXSSFSheet sheet,
         List<Evento> eventos,
         SectionStyles styles,
         Map<String, Integer> primeiraLinhaEvidencia) {
-        var sheet = workbook.createSheet(SHEET_EVENTOS);
         criarHeaderSecionado(sheet, styles);
 
-        var creationHelper = workbook.getCreationHelper();
+        var creationHelper = sheet.getWorkbook().getCreationHelper();
         var rowIndex = 1;
         for (var evento : eventos) {
             var row = sheet.createRow(rowIndex++);
             write(row, 0, evento.codigoEvento());
             write(row, 1, evento.titulo());
             write(row, 2, format(evento.dataInicio()));
-            write(row, 3, format(evento.dataTermino()));
+            write(row, 3, evento.hora());
             write(row, 4, evento.local());
             write(row, 5, evento.municipio());
             write(row, 6, evento.uf());
             write(row, 7, evento.unidadeEcad());
-            write(row, 8, evento.hora());
-
-            write(row, 9, evento.promotorNome());
-            write(row, 10, evento.promotorCnpj());
-            write(row, 11, evento.interpretes() == null ? "" : String.join("; ", evento.interpretes()));
-            write(row, 12, evento.tipoMusica() == null ? "" : evento.tipoMusica().jsonValue());
-            write(row, 13, evento.capacidadePublico() == null ? "" : evento.capacidadePublico().toString());
-
-            write(row, 14, evento.fontePrimaria() == null ? "" : evento.fontePrimaria().jsonValue());
-            write(row, 15, evento.evidencias() == null ? 0 : evento.evidencias().size());
+            write(row, 8, evento.promotorNome());
+            write(row, 9, evento.promotorContato());
+            write(row, 10, interpretePrincipal(evento.interpretes()));
+            write(row, 11, interpretesOutros(evento.interpretes()));
+            write(row, 12, rotuloTipoMusica(evento.tipoMusica()));
+            write(row, 13, rotuloCobranca(evento.cobrancaIngresso()));
+            write(row, 14, formatValorIngresso(evento.valorIngresso(), evento.cobrancaIngresso()));
+            write(row, 15, evento.capacidadePublico() == null ? "" : evento.capacidadePublico().toString());
+            write(row, 16, evento.evidencias() == null ? 0 : evento.evidencias().size());
 
             var primeira = primeiraLinhaEvidencia.get(nullToEmpty(evento.codigoEvento()));
             if (primeira != null) {
-                writeMagicLink(row, 16, "Ver evidencias (linha " + primeira + ")",
+                writeMagicLink(row, 17, "Ver " + (evento.evidencias() == null ? 0 : evento.evidencias().size())
+                    + " evidência(s) (linha " + primeira + ")",
                     "'" + SHEET_EVIDENCIAS + "'!A" + primeira, creationHelper, styles.hyperlink);
             } else {
-                write(row, 16, "");
+                write(row, 17, "");
             }
 
-            write(row, 17, evento.status() == null ? "" : evento.status().jsonValue());
-            write(row, 18, evento.statusSga() == null ? "" : evento.statusSga().jsonValue());
-            write(row, 19, evento.nivelCompletude() == null ? "" : evento.nivelCompletude().jsonValue());
-            write(row, 20, evento.observacoesIa());
+            write(row, 18, rotuloStatusEvento(evento.status()));
+            write(row, 19, rotuloStatusSga(evento.statusSga()));
+            write(row, 20, rotuloNivelCompletude(evento.nivelCompletude()));
+            write(row, 21, rotuloFontePrimaria(evento.fontePrimaria()));
+            write(row, 22, format(evento.dataDescoberta()));
+            write(row, 23, format(evento.dataAtualizacao()));
+            write(row, 24, evento.observacoesIa());
         }
 
         sheet.setAutoFilter(new CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, HEADERS_EVENTOS.size() - 1));
         sheet.createFreezePane(1, 1);
     }
 
-    private void criarAbaResumo(SXSSFWorkbook workbook, List<Evento> eventos, SectionStyles styles) throws IOException {
-        var sheet = workbook.createSheet(SHEET_RESUMO);
-        var fontes = fonteCaptacaoRepository.listar(null, null);
-
+    private void preencherAbaResumo(SXSSFSheet sheet, List<Evento> eventos, SectionStyles styles) throws IOException {
         var total = eventos.size();
         var inedito = (int) eventos.stream().filter(e -> e.statusSga() == StatusSGA.INEDITO).count();
         var jaCadastrado = (int) eventos.stream().filter(e -> e.statusSga() == StatusSGA.JA_CADASTRADO).count();
-        var naoVerificado = total - inedito - jaCadastrado;
         var totalEvidencias = eventos.stream().mapToInt(e -> e.evidencias() == null ? 0 : e.evidencias().size()).sum();
         var taxaIneditismo = total == 0 ? 0d : (inedito * 100d / total);
+        var agora = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
 
-        var rowIndex = 0;
-        rowIndex = writeSecaoTitulo(sheet, rowIndex, "Indicadores Gerais", styles.headerIdentificacao);
-        rowIndex = writeMetrica(sheet, rowIndex, "Total de Eventos Capturados", Integer.toString(total));
-        rowIndex = writeMetrica(sheet, rowIndex, "Eventos INEDITOS", Integer.toString(inedito));
-        rowIndex = writeMetrica(sheet, rowIndex, "Eventos JA CADASTRADOS", Integer.toString(jaCadastrado));
-        rowIndex = writeMetrica(sheet, rowIndex, "Eventos NAO VERIFICADOS", Integer.toString(naoVerificado));
-        rowIndex = writeMetrica(sheet, rowIndex, "Taxa de Ineditismo (%)", String.format(Locale.ROOT, "%.2f", taxaIneditismo));
-        rowIndex = writeMetrica(sheet, rowIndex, "Total de Evidencias Coletadas", Integer.toString(totalEvidencias));
-        rowIndex = writeMetrica(sheet, rowIndex, "Fontes Cadastradas", Integer.toString(fontes.size()));
-        rowIndex++;
+        // Linha 1: título
+        var rowTitulo = sheet.createRow(0);
+        var cellTitulo = rowTitulo.createCell(1);
+        cellTitulo.setCellValue("CAPTURA DE EVENTOS — RESUMO EXECUTIVO");
+        cellTitulo.setCellStyle(styles.headerIdentificacao);
 
-        rowIndex = writeSecaoTitulo(sheet, rowIndex, "Distribuicao por Unidade ECAD", styles.headerComplementar);
-        rowIndex = writeDistribuicao(sheet, rowIndex, distribuirPorUnidade(eventos));
-        rowIndex++;
+        // Linha 2: geração
+        var rowGeracao = sheet.createRow(1);
+        var cellGeracao = rowGeracao.createCell(1);
+        cellGeracao.setCellValue("Gerado em: " + agora + " — Projeto Digital Mind x ECAD");
 
-        rowIndex = writeSecaoTitulo(sheet, rowIndex, "Distribuicao por Fonte Primaria", styles.headerInteligencia);
-        writeDistribuicao(sheet, rowIndex, distribuirPorFontePrimaria(eventos));
+        // Linha 3: (vazia)
 
-        sheet.setColumnWidth(0, 12_000);
+        // Linha 4: KPIs em linha (B, D, F, H)
+        var rowKpis = sheet.createRow(3);
+        write(rowKpis, 1, Integer.toString(total));
+        write(rowKpis, 3, Integer.toString(inedito));
+        write(rowKpis, 5, Integer.toString(jaCadastrado));
+        write(rowKpis, 7, String.format(Locale.forLanguageTag("pt-BR"), "%.1f%%", taxaIneditismo));
+
+        // Linha 5: rótulos dos KPIs
+        var rowRotulos = sheet.createRow(4);
+        write(rowRotulos, 1, "Total Capturado");
+        write(rowRotulos, 3, "Eventos INÉDITOS");
+        write(rowRotulos, 5, "Já Cadastrados");
+        write(rowRotulos, 7, "Taxa Ineditismo");
+
+        // Linha 6: (vazia)
+
+        // Linha 7: total de evidências
+        var rowEvidencias = sheet.createRow(6);
+        write(rowEvidencias, 1, Integer.toString(totalEvidencias));
+
+        // Linha 8: rótulo
+        var rowRotuloEvidencias = sheet.createRow(7);
+        write(rowRotuloEvidencias, 1, "Total de Evidências Coletadas");
+
+        sheet.setColumnWidth(0, 4_000);
         sheet.setColumnWidth(1, 6_000);
+        sheet.setColumnWidth(3, 6_000);
+        sheet.setColumnWidth(5, 6_000);
+        sheet.setColumnWidth(7, 6_000);
     }
 
-    private static Map<String, Integer> distribuirPorUnidade(List<Evento> eventos) {
-        var resultado = new LinkedHashMap<String, Integer>();
-        eventos.stream()
-            .collect(java.util.stream.Collectors.groupingBy(
-                e -> nullToEmptyOrUnknown(e.unidadeEcad()),
-                java.util.stream.Collectors.counting()))
-            .entrySet().stream()
-            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-            .forEach(entry -> resultado.put(entry.getKey(), entry.getValue().intValue()));
-        return resultado;
-    }
-
-    private static Map<String, Integer> distribuirPorFontePrimaria(List<Evento> eventos) {
-        var resultado = new LinkedHashMap<String, Integer>();
-        eventos.stream()
-            .collect(java.util.stream.Collectors.groupingBy(
-                e -> e.fontePrimaria() == null ? "(nao informada)" : e.fontePrimaria().jsonValue(),
-                java.util.stream.Collectors.counting()))
-            .entrySet().stream()
-            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-            .forEach(entry -> resultado.put(entry.getKey(), entry.getValue().intValue()));
-        return resultado;
-    }
-
-    private static int writeSecaoTitulo(SXSSFSheet sheet, int rowIndex, String titulo, CellStyle style) {
-        var row = sheet.createRow(rowIndex);
-        var cell = row.createCell(0);
-        cell.setCellValue(titulo);
-        cell.setCellStyle(style);
-        return rowIndex + 1;
-    }
-
-    private static int writeMetrica(SXSSFSheet sheet, int rowIndex, String nome, String valor) {
-        var row = sheet.createRow(rowIndex);
-        write(row, 0, nome);
-        write(row, 1, valor);
-        return rowIndex + 1;
-    }
-
-    private static int writeDistribuicao(SXSSFSheet sheet, int rowIndex, Map<String, Integer> distribuicao) {
-        for (var entry : distribuicao.entrySet()) {
-            var row = sheet.createRow(rowIndex++);
-            write(row, 0, entry.getKey());
-            write(row, 1, entry.getValue());
+    private static String interpretePrincipal(List<String> interpretes) {
+        if (interpretes == null || interpretes.isEmpty()) {
+            return "";
         }
-        return rowIndex;
+        return nullToEmpty(interpretes.get(0));
+    }
+
+    private static String interpretesOutros(List<String> interpretes) {
+        if (interpretes == null || interpretes.size() <= 1) {
+            return "";
+        }
+        return String.join("; ", interpretes.subList(1, interpretes.size()));
+    }
+
+    private static String rotuloTipoEvidencia(br.com.ecad.captacao.shared.domain.enums.TipoEvidencia tipo) {
+        if (tipo == null) {
+            return "";
+        }
+        return switch (tipo) {
+            case CONTRATO_MUSICAL -> "Contrato";
+        };
+    }
+
+    private static String rotuloTipoMusica(br.com.ecad.captacao.shared.domain.enums.TipoMusica tipo) {
+        if (tipo == null) {
+            return "Não Identificado";
+        }
+        return switch (tipo) {
+            case AO_VIVO -> "Ao Vivo";
+            case MECANICA -> "Mecânica";
+            case MISTA -> "Mista";
+            case NAO_IDENTIFICADO -> "Não Identificado";
+        };
+    }
+
+    private static String rotuloCobranca(br.com.ecad.captacao.shared.domain.enums.CobrancaIngresso cobranca) {
+        if (cobranca == null) {
+            return "Não Identificado";
+        }
+        return switch (cobranca) {
+            case SIM -> "Sim";
+            case NAO_GRATUITO -> "Não (Gratuito)";
+            case NAO_IDENTIFICADO -> "Não Identificado";
+        };
+    }
+
+    private static String formatValorIngresso(Double valor, br.com.ecad.captacao.shared.domain.enums.CobrancaIngresso cobranca) {
+        if (cobranca == br.com.ecad.captacao.shared.domain.enums.CobrancaIngresso.SIM && valor != null) {
+            return String.format(Locale.forLanguageTag("pt-BR"), "R$ %.2f", valor);
+        }
+        return "";
+    }
+
+    private static String rotuloStatusEvento(br.com.ecad.captacao.shared.domain.enums.StatusEvento status) {
+        if (status == null) {
+            return "";
+        }
+        return switch (status) {
+            case AGENDADO -> "Agendado";
+            case EM_ANDAMENTO -> "Em Andamento";
+            case REALIZADO -> "Realizado";
+            case CANCELADO -> "Cancelado";
+        };
+    }
+
+    private static String rotuloStatusSga(StatusSGA status) {
+        if (status == null) {
+            return "";
+        }
+        return switch (status) {
+            case INEDITO -> "INÉDITO";
+            case JA_CADASTRADO -> "JÁ CADASTRADO";
+            case NAO_VERIFICADO -> "NÃO VERIFICADO";
+        };
+    }
+
+    private static String rotuloNivelCompletude(br.com.ecad.captacao.shared.domain.enums.NivelCompletude nivel) {
+        if (nivel == null) {
+            return "";
+        }
+        return switch (nivel) {
+            case ALTO -> "Alto";
+            case MEDIO -> "Médio";
+            case BASICO -> "Básico";
+            case INSUFICIENTE -> "Insuficiente";
+        };
+    }
+
+    private static String rotuloFontePrimaria(br.com.ecad.captacao.shared.domain.enums.TipoCanal fonte) {
+        if (fonte == null) {
+            return "";
+        }
+        return switch (fonte) {
+            case AGREGADOR_GOV -> "Agregador Gov (AMUNES)";
+        };
     }
 
     private static void criarHeader(SXSSFSheet sheet, List<String> headers, CellStyle style) {
@@ -388,10 +457,6 @@ public class PlanilhaService {
 
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;
-    }
-
-    private static String nullToEmptyOrUnknown(String value) {
-        return (value == null || value.isBlank()) ? "(sem unidade)" : value;
     }
 
     private static final class SectionStyles {
