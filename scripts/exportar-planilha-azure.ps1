@@ -207,8 +207,14 @@ Write-Info "Content-Type: $($response.Headers['Content-Type'])"
 
 # Tenta extrair o nome sugerido pelo Content-Disposition (caso queira conferir)
 $contentDisposition = $response.Headers['Content-Disposition']
-if ($contentDisposition -and $contentDisposition -match 'filename="?([^";]+)"?') {
-    Write-Info "Nome sugerido pelo servidor: $($matches[1])"
+if ($contentDisposition) {
+    # Headers podem vir como array; junta para string antes do match
+    $cdStr = ($contentDisposition -join ', ')
+    if ($cdStr -match 'filename="?([^";]+)"?') {
+        Write-Info "Nome sugerido pelo servidor: $($matches[1])"
+    } else {
+        Write-Info "Content-Disposition: $cdStr"
+    }
 }
 
 Write-Host "`n=== Concluido ===" -ForegroundColor Cyan

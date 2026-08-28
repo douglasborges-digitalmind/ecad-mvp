@@ -13,21 +13,26 @@ import java.util.Locale;
 import java.util.Map;
 
 import br.com.ecad.captacao.shared.domain.entities.Evento;
+import br.com.ecad.captacao.shared.domain.enums.NivelCompletude;
 import br.com.ecad.captacao.shared.domain.enums.StatusSGA;
 import br.com.ecad.captacao.shared.infrastructure.repositories.DestinatarioRepository;
 import br.com.ecad.captacao.shared.infrastructure.repositories.EventoRepository;
 import org.apache.poi.common.usermodel.HyperlinkType;
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.springframework.stereotype.Service;
 
 /**
@@ -44,10 +49,38 @@ public class PlanilhaService {
     private static final String SHEET_EVIDENCIAS = "Evidências";
     private static final String SHEET_RESUMO = "Resumo Executivo";
 
-    private static final byte[] COR_IDENTIFICACAO = new byte[] {(byte) 31, (byte) 78, (byte) 121};
-    private static final byte[] COR_COMPLEMENTAR = new byte[] {(byte) 27, (byte) 94, (byte) 87};
-    private static final byte[] COR_EVIDENCIA = new byte[] {(byte) 132, (byte) 32, (byte) 41};
-    private static final byte[] COR_INTELIGENCIA = new byte[] {(byte) 76, (byte) 28, (byte) 110};
+    // Paleta extraída do Template-Planilha-Eventos-ECAD.xlsx (styles.xml).
+    private static final byte[] COR_IDENTIFICACAO = hex("1B4F72"); // azul
+    private static final byte[] COR_COMPLEMENTAR = hex("117A65"); // verde
+    private static final byte[] COR_EVIDENCIA = hex("7B241C");    // vinho
+    private static final byte[] COR_INTELIGENCIA = hex("4A235A"); // roxo
+    private static final byte[] COR_TABELA_HEADER = hex("2C3E50"); // cinza-azulado
+    private static final byte[] COR_BORDA = hex("BDC3C7");
+    private static final byte[] COR_HYPERLINK = hex("2E86C1");
+    private static final byte[] COR_VERDE_TEXTO = hex("1E8449");
+    private static final byte[] COR_VERMELHO_TEXTO = hex("922B21");
+    private static final byte[] COR_FILL_INEDITO = hex("D5F5E3");
+    private static final byte[] COR_FILL_JA_CADASTRADO = hex("FADBD8");
+    private static final byte[] COR_TITULO = hex("1B4F72");
+    private static final byte[] COR_KPI = hex("1B4F72");
+    private static final byte[] COR_KPI_EVIDENCIAS = hex("7B241C");
+    private static final byte[] COR_ROTULO_KPI = hex("566573");
+    private static final byte[] COR_GERADO_EM = hex("7F8C8D");
+
+    private static byte[] hex(String rgb) {
+        var bytes = new byte[3];
+        for (int i = 0; i < 3; i++) {
+            bytes[i] = (byte) Integer.parseInt(rgb.substring(i * 2, i * 2 + 2), 16);
+        }
+        return bytes;
+    }
+
+    /** Larguras de coluna (em caracteres Excel) da aba Eventos Capturados, conforme template. */
+    private static final int[] LARGURAS_EVENTOS = {
+        18, 40, 16, 13, 28, 24, 6, 22, 32, 26, 26, 36, 16, 18, 16, 18, 16, 22, 16, 18, 18, 24, 16, 16, 55};
+    /** Larguras de coluna (em caracteres Excel) da aba Evidências, conforme template. */
+    private static final int[] LARGURAS_EVIDENCIAS = {18, 6, 20, 52, 72, 16};
+    private static final int LARGURA_RESUMO = 22;
 
     private static final List<String> HEADERS_EVENTOS = List.of(
         "ID_Evento", "Titulo_Evento", "Data_Realizacao", "Hora_Inicio", "Local_Evento", "Municipio", "UF",
@@ -146,7 +179,7 @@ public class PlanilhaService {
     }
 
     private Map<String, Integer> preencherAbaEvidencias(SXSSFSheet sheet, List<Evento> eventos, SectionStyles styles) {
-        criarHeader(sheet, HEADERS_EVIDENCIAS, styles.headerEvidencia);
+        criarHeader(sheet, HEADERS_EVIDENCIAS, styles.headerEvidencia, LARGURAS_EVIDENCIAS);
 
         var primeiraLinha = new LinkedHashMap<String, Integer>();
         var creationHelper = sheet.getWorkbook().getCreationHelper();
@@ -160,12 +193,12 @@ public class PlanilhaService {
             primeiraLinha.put(nullToEmpty(evento.codigoEvento()), rowIndex + 1);
             for (var evidencia : evento.evidencias()) {
                 var row = sheet.createRow(rowIndex++);
-                write(row, 0, evento.codigoEvento());
-                write(row, 1, evidencia.sequencia());
-                write(row, 2, rotuloTipoEvidencia(evidencia.tipo()));
+                write(row, 0, evento.codigoEvento(), styles.celula);
+                write(row, 1, evidencia.sequencia(), styles.celula);
+                write(row, 2, rotuloTipoEvidencia(evidencia.tipo()), styles.celula);
                 writeHyperlink(row, 3, evidencia.urlOrigem(), creationHelper, styles.hyperlink);
                 writeHyperlink(row, 4, evidencia.urlArmazenamentoInterno(), creationHelper, styles.hyperlink);
-                write(row, 5, format(evidencia.dataCaptura()));
+                write(row, 5, format(evidencia.dataCaptura()), styles.celula);
             }
         }
 
@@ -185,40 +218,40 @@ public class PlanilhaService {
         var rowIndex = 1;
         for (var evento : eventos) {
             var row = sheet.createRow(rowIndex++);
-            write(row, 0, evento.codigoEvento());
-            write(row, 1, evento.titulo());
-            write(row, 2, format(evento.dataInicio()));
-            write(row, 3, evento.hora());
-            write(row, 4, evento.local());
-            write(row, 5, evento.municipio());
-            write(row, 6, evento.uf());
-            write(row, 7, evento.unidadeEcad());
-            write(row, 8, evento.promotorNome());
-            write(row, 9, evento.promotorContato());
-            write(row, 10, interpretePrincipal(evento.interpretes()));
-            write(row, 11, interpretesOutros(evento.interpretes()));
-            write(row, 12, rotuloTipoMusica(evento.tipoMusica()));
-            write(row, 13, rotuloCobranca(evento.cobrancaIngresso()));
-            write(row, 14, formatValorIngresso(evento.valorIngresso(), evento.cobrancaIngresso()));
-            write(row, 15, evento.capacidadePublico() == null ? "" : evento.capacidadePublico().toString());
-            write(row, 16, evento.evidencias() == null ? 0 : evento.evidencias().size());
+            write(row, 0, evento.codigoEvento(), styles.celula);
+            write(row, 1, evento.titulo(), styles.celula);
+            write(row, 2, format(evento.dataInicio()), styles.celula);
+            write(row, 3, evento.hora(), styles.celula);
+            write(row, 4, evento.local(), styles.celula);
+            write(row, 5, evento.municipio(), styles.celula);
+            write(row, 6, evento.uf(), styles.celula);
+            write(row, 7, evento.unidadeEcad(), styles.celula);
+            write(row, 8, evento.promotorNome(), styles.celula);
+            write(row, 9, evento.promotorContato(), styles.celula);
+            write(row, 10, interpretePrincipal(evento.interpretes()), styles.celula);
+            write(row, 11, interpretesOutros(evento.interpretes()), styles.celula);
+            write(row, 12, rotuloTipoMusica(evento.tipoMusica()), styles.celula);
+            write(row, 13, rotuloCobranca(evento.cobrancaIngresso()), styles.celula);
+            write(row, 14, formatValorIngresso(evento.valorIngresso(), evento.cobrancaIngresso()), styles.celula);
+            write(row, 15, evento.capacidadePublico() == null ? "" : evento.capacidadePublico().toString(), styles.celula);
+            write(row, 16, evento.evidencias() == null ? 0 : evento.evidencias().size(), styles.celula);
 
             var primeira = primeiraLinhaEvidencia.get(nullToEmpty(evento.codigoEvento()));
             if (primeira != null) {
                 writeMagicLink(row, 17, "Ver " + (evento.evidencias() == null ? 0 : evento.evidencias().size())
-                    + " evidência(s) (linha " + primeira + ")",
+                    + " evidência(s)",
                     "'" + SHEET_EVIDENCIAS + "'!A" + primeira, creationHelper, styles.hyperlink);
             } else {
-                write(row, 17, "");
+                write(row, 17, "", styles.celula);
             }
 
-            write(row, 18, rotuloStatusEvento(evento.status()));
-            write(row, 19, rotuloStatusSga(evento.statusSga()));
-            write(row, 20, rotuloNivelCompletude(evento.nivelCompletude()));
-            write(row, 21, rotuloFontePrimaria(evento.fontePrimaria()));
-            write(row, 22, format(evento.dataDescoberta()));
-            write(row, 23, format(evento.dataAtualizacao()));
-            write(row, 24, evento.observacoesIa());
+            write(row, 18, rotuloStatusEvento(evento.status()), styles.celula);
+            writeStatusSga(row, 19, evento.statusSga(), styles);
+            write(row, 20, rotuloNivelCompletude(evento.nivelCompletude()), styles.celula);
+            write(row, 21, rotuloFontePrimaria(evento.fontePrimaria()), styles.celula);
+            write(row, 22, format(evento.dataDescoberta()), styles.celula);
+            write(row, 23, format(evento.dataAtualizacao()), styles.celula);
+            write(row, 24, evento.observacoesIa(), styles.celula);
         }
 
         sheet.setAutoFilter(new CellRangeAddress(0, Math.max(0, rowIndex - 1), 0, HEADERS_EVENTOS.size() - 1));
@@ -233,48 +266,124 @@ public class PlanilhaService {
         var taxaIneditismo = total == 0 ? 0d : (inedito * 100d / total);
         var agora = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
 
-        // Linha 1: título
-        var rowTitulo = sheet.createRow(0);
-        var cellTitulo = rowTitulo.createCell(1);
-        cellTitulo.setCellValue("CAPTURA DE EVENTOS — RESUMO EXECUTIVO");
-        cellTitulo.setCellStyle(styles.headerIdentificacao);
+        // Larguras uniformes (colunas A-H), conforme template.
+        for (var col = 0; col < 8; col++) {
+            sheet.setColumnWidth(col, LARGURA_RESUMO * 256);
+        }
 
-        // Linha 2: geração
+        // Linha 1: título mesclado A1:H1, bold 24 azul.
+        var rowTitulo = sheet.createRow(0);
+        var cellTitulo = rowTitulo.createCell(0);
+        cellTitulo.setCellValue("CAPTURA DE EVENTOS — RESUMO EXECUTIVO");
+        cellTitulo.setCellStyle(styles.titulo);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
+
+        // Linha 2: geração mesclada A2:H2, itálico cinza.
         var rowGeracao = sheet.createRow(1);
-        var cellGeracao = rowGeracao.createCell(1);
+        var cellGeracao = rowGeracao.createCell(0);
         cellGeracao.setCellValue("Gerado em: " + agora + " — Projeto Digital Mind x ECAD");
+        cellGeracao.setCellStyle(styles.geradoEm);
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 7));
 
         // Linha 3: (vazia)
 
-        // Linha 4: KPIs em linha (B, D, F, H)
+        // Linha 4: KPIs em linha (B, D, F, H), bold 24.
         var rowKpis = sheet.createRow(3);
-        write(rowKpis, 1, Integer.toString(total));
-        write(rowKpis, 3, Integer.toString(inedito));
-        write(rowKpis, 5, Integer.toString(jaCadastrado));
-        write(rowKpis, 7, String.format(Locale.forLanguageTag("pt-BR"), "%.1f%%", taxaIneditismo));
+        writeKpi(rowKpis, 1, Integer.toString(total), styles.kpi);
+        writeKpi(rowKpis, 3, Integer.toString(inedito), styles.kpi);
+        writeKpi(rowKpis, 5, Integer.toString(jaCadastrado), styles.kpi);
+        writeKpi(rowKpis, 7, String.format(Locale.ROOT, "%.1f%%", taxaIneditismo), styles.kpi);
 
-        // Linha 5: rótulos dos KPIs
+        // Linha 5: rótulos dos KPIs, cinza.
         var rowRotulos = sheet.createRow(4);
-        write(rowRotulos, 1, "Total Capturado");
-        write(rowRotulos, 3, "Eventos INÉDITOS");
-        write(rowRotulos, 5, "Já Cadastrados");
-        write(rowRotulos, 7, "Taxa Ineditismo");
+        write(rowRotulos, 1, "Total Capturado", styles.rotuloKpi);
+        write(rowRotulos, 3, "Eventos INÉDITOS", styles.rotuloKpi);
+        write(rowRotulos, 5, "Já Cadastrados", styles.rotuloKpi);
+        write(rowRotulos, 7, "Taxa Ineditismo", styles.rotuloKpi);
 
         // Linha 6: (vazia)
 
-        // Linha 7: total de evidências
+        // Linha 7: total de evidências, bold vinho.
         var rowEvidencias = sheet.createRow(6);
-        write(rowEvidencias, 1, Integer.toString(totalEvidencias));
+        writeKpi(rowEvidencias, 1, Integer.toString(totalEvidencias), styles.kpiEvidencias);
 
-        // Linha 8: rótulo
+        // Linha 8: rótulo, cinza.
         var rowRotuloEvidencias = sheet.createRow(7);
-        write(rowRotuloEvidencias, 1, "Total de Evidências Coletadas");
+        write(rowRotuloEvidencias, 1, "Total de Evidências Coletadas", styles.rotuloKpi);
 
-        sheet.setColumnWidth(0, 4_000);
-        sheet.setColumnWidth(1, 6_000);
-        sheet.setColumnWidth(3, 6_000);
-        sheet.setColumnWidth(5, 6_000);
-        sheet.setColumnWidth(7, 6_000);
+        // Linha 10: Distribuição por Status SGA (Deduplicação).
+        var rowTituloSga = sheet.createRow(9);
+        write(rowTituloSga, 0, "Distribuição por Status SGA (Deduplicação)", styles.tituloSecao);
+        sheet.addMergedRegion(new CellRangeAddress(9, 9, 0, 3));
+        var headerSga = sheet.createRow(10);
+        write(headerSga, 0, "Status SGA", styles.headerTabela);
+        write(headerSga, 1, "Quantidade", styles.headerTabela);
+        write(headerSga, 2, "% do Total", styles.headerTabela);
+        var linha = 11;
+        linha = escreverDistribuicao(sheet, linha, "INÉDITO", inedito, total, styles.celulaCentro);
+        linha = escreverDistribuicao(sheet, linha, "JÁ CADASTRADO", jaCadastrado, total, styles.celulaCentro);
+
+        // Distribuição por Nível de Completude.
+        var linhaTituloNivel = linha + 1;
+        var rowTituloNivel = sheet.createRow(linhaTituloNivel);
+        write(rowTituloNivel, 0, "Distribuição por Nível de Completude", styles.tituloSecao);
+        sheet.addMergedRegion(new CellRangeAddress(linhaTituloNivel, linhaTituloNivel, 0, 3));
+        var headerNivel = sheet.createRow(linhaTituloNivel + 1);
+        write(headerNivel, 0, "Nível", styles.headerTabela);
+        write(headerNivel, 1, "Quantidade", styles.headerTabela);
+        write(headerNivel, 2, "% do Total", styles.headerTabela);
+        linha = linhaTituloNivel + 2;
+        for (var nivel : NivelCompletude.values()) {
+            var qtd = (int) eventos.stream().filter(e -> e.nivelCompletude() == nivel).count();
+            linha = escreverDistribuicao(sheet, linha, rotuloNivelCompletude(nivel), qtd, total, styles.celula);
+        }
+
+        // Distribuição por Tipo de Fonte.
+        var linhaTituloFonte = linha + 1;
+        var rowTituloFonte = sheet.createRow(linhaTituloFonte);
+        write(rowTituloFonte, 0, "Distribuição por Tipo de Fonte", styles.tituloSecao);
+        sheet.addMergedRegion(new CellRangeAddress(linhaTituloFonte, linhaTituloFonte, 0, 3));
+        var headerFonte = sheet.createRow(linhaTituloFonte + 1);
+        write(headerFonte, 0, "Fonte Primária", styles.headerTabela);
+        write(headerFonte, 1, "Quantidade", styles.headerTabela);
+        write(headerFonte, 2, "% do Total", styles.headerTabela);
+        linha = linhaTituloFonte + 2;
+        var fontes = eventos.stream()
+            .map(Evento::fontePrimaria)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.groupingBy(f -> f, LinkedHashMap::new, java.util.stream.Collectors.counting()));
+        for (var entry : fontes.entrySet()) {
+            linha = escreverDistribuicao(sheet, linha, rotuloFontePrimaria(entry.getKey()),
+                entry.getValue().intValue(), total, styles.celula);
+        }
+    }
+
+    /** Escreve uma linha de distribuição (rótulo, quantidade, %) e retorna a próxima linha. */
+    private static int escreverDistribuicao(SXSSFSheet sheet, int linha, String rotulo, int qtd, int total, CellStyle estilo) {
+        var row = sheet.createRow(linha);
+        write(row, 0, rotulo, estilo);
+        write(row, 1, Integer.toString(qtd), estilo);
+        var pct = total == 0 ? 0d : (qtd * 100d / total);
+        write(row, 2, String.format(Locale.ROOT, "%.1f%%", pct), estilo);
+        return linha + 1;
+    }
+
+    private static void writeKpi(Row row, int column, String value, CellStyle style) {
+        var cell = row.createCell(column);
+        cell.setCellValue(value == null ? "" : value);
+        cell.setCellStyle(style);
+    }
+
+    private static void writeStatusSga(Row row, int column, StatusSGA status, SectionStyles styles) {
+        var cell = row.createCell(column);
+        cell.setCellValue(rotuloStatusSga(status));
+        if (status == StatusSGA.INEDITO) {
+            cell.setCellStyle(styles.statusInedito);
+        } else if (status == StatusSGA.JA_CADASTRADO) {
+            cell.setCellStyle(styles.statusJaCadastrado);
+        } else {
+            cell.setCellStyle(styles.celula);
+        }
     }
 
     private static String interpretePrincipal(List<String> interpretes) {
@@ -374,15 +483,17 @@ public class PlanilhaService {
         };
     }
 
-    private static void criarHeader(SXSSFSheet sheet, List<String> headers, CellStyle style) {
+    private static void criarHeader(SXSSFSheet sheet, List<String> headers, CellStyle style, int[] larguras) {
         var row = sheet.createRow(0);
         for (var column = 0; column < headers.size(); column++) {
             var cell = row.createCell(column);
             cell.setCellValue(headers.get(column));
             cell.setCellStyle(style);
         }
-        for (var column = 0; column < headers.size(); column++) {
-            sheet.setColumnWidth(column, larguraDefault(headers.get(column)));
+        if (larguras != null) {
+            for (var column = 0; column < larguras.length; column++) {
+                sheet.setColumnWidth(column, larguras[column] * 256);
+            }
         }
     }
 
@@ -393,8 +504,8 @@ public class PlanilhaService {
             cell.setCellValue(HEADERS_EVENTOS.get(column));
             cell.setCellStyle(estiloPorColuna(column, styles));
         }
-        for (var column = 0; column < HEADERS_EVENTOS.size(); column++) {
-            sheet.setColumnWidth(column, larguraDefault(HEADERS_EVENTOS.get(column)));
+        for (var column = 0; column < LARGURAS_EVENTOS.length; column++) {
+            sheet.setColumnWidth(column, LARGURAS_EVENTOS[column] * 256);
         }
     }
 
@@ -411,17 +522,20 @@ public class PlanilhaService {
         return styles.headerInteligencia;
     }
 
-    private static int larguraDefault(String header) {
-        var base = header.length() * 280;
-        return Math.max(3_500, Math.min(base, 12_000));
+    private static void write(Row row, int column, String value, CellStyle style) {
+        var cell = row.createCell(column);
+        cell.setCellValue(value == null ? "" : value);
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
     }
 
-    private static void write(Row row, int column, String value) {
-        row.createCell(column).setCellValue(value == null ? "" : value);
-    }
-
-    private static void write(Row row, int column, int value) {
-        row.createCell(column).setCellValue(value);
+    private static void write(Row row, int column, int value, CellStyle style) {
+        var cell = row.createCell(column);
+        cell.setCellValue(value);
+        if (style != null) {
+            cell.setCellStyle(style);
+        }
     }
 
     private static void writeHyperlink(Row row, int column, String url, CreationHelper helper, CellStyle style) {
@@ -459,19 +573,45 @@ public class PlanilhaService {
         return value == null ? "" : value;
     }
 
+    /** Estilos da planilha, replicando a paleta e formatação do template XLSX. */
     private static final class SectionStyles {
         final CellStyle headerIdentificacao;
         final CellStyle headerComplementar;
         final CellStyle headerEvidencia;
         final CellStyle headerInteligencia;
         final CellStyle hyperlink;
+        final CellStyle celula;
+        final CellStyle celulaCentro;
+        final CellStyle statusInedito;
+        final CellStyle statusJaCadastrado;
+        final CellStyle titulo;
+        final CellStyle geradoEm;
+        final CellStyle kpi;
+        final CellStyle kpiEvidencias;
+        final CellStyle rotuloKpi;
+        final CellStyle tituloSecao;
+        final CellStyle headerTabela;
 
-        private SectionStyles(CellStyle id, CellStyle comp, CellStyle ev, CellStyle intel, CellStyle hyperlink) {
+        private SectionStyles(CellStyle id, CellStyle comp, CellStyle ev, CellStyle intel, CellStyle hyperlink,
+            CellStyle celula, CellStyle celulaCentro, CellStyle statusInedito, CellStyle statusJaCadastrado,
+            CellStyle titulo, CellStyle geradoEm, CellStyle kpi, CellStyle kpiEvidencias, CellStyle rotuloKpi,
+            CellStyle tituloSecao, CellStyle headerTabela) {
             this.headerIdentificacao = id;
             this.headerComplementar = comp;
             this.headerEvidencia = ev;
             this.headerInteligencia = intel;
             this.hyperlink = hyperlink;
+            this.celula = celula;
+            this.celulaCentro = celulaCentro;
+            this.statusInedito = statusInedito;
+            this.statusJaCadastrado = statusJaCadastrado;
+            this.titulo = titulo;
+            this.geradoEm = geradoEm;
+            this.kpi = kpi;
+            this.kpiEvidencias = kpiEvidencias;
+            this.rotuloKpi = rotuloKpi;
+            this.tituloSecao = tituloSecao;
+            this.headerTabela = headerTabela;
         }
 
         static SectionStyles build(SXSSFWorkbook workbook) {
@@ -479,19 +619,115 @@ public class PlanilhaService {
             headerFont.setColor(IndexedColors.WHITE.getIndex());
             headerFont.setBold(true);
 
-            var hyperlinkFont = workbook.createFont();
+            var hyperlinkFont = (XSSFFont) workbook.createFont();
             hyperlinkFont.setUnderline(Font.U_SINGLE);
-            hyperlinkFont.setColor(IndexedColors.BLUE.getIndex());
+            hyperlinkFont.setColor(new XSSFColor(COR_HYPERLINK, null));
 
             var hyperlinkStyle = workbook.createCellStyle();
             hyperlinkStyle.setFont(hyperlinkFont);
+            aplicarBorda(hyperlinkStyle);
+
+            var celulaStyle = workbook.createCellStyle();
+            aplicarBorda(celulaStyle);
+            celulaStyle.setWrapText(true);
+            celulaStyle.setVerticalAlignment(VerticalAlignment.TOP);
+
+            var celulaCentroStyle = workbook.createCellStyle();
+            celulaCentroStyle.cloneStyleFrom(celulaStyle);
+            celulaCentroStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var statusIneditoStyle = workbook.createCellStyle();
+            aplicarBorda(statusIneditoStyle);
+            statusIneditoStyle.setFont(fonte(workbook, COR_VERDE_TEXTO, true));
+            statusIneditoStyle.setFillForegroundColor(new XSSFColor(COR_FILL_INEDITO, null));
+            statusIneditoStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            statusIneditoStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var statusJaCadastradoStyle = workbook.createCellStyle();
+            aplicarBorda(statusJaCadastradoStyle);
+            statusJaCadastradoStyle.setFont(fonte(workbook, COR_VERMELHO_TEXTO, true));
+            statusJaCadastradoStyle.setFillForegroundColor(new XSSFColor(COR_FILL_JA_CADASTRADO, null));
+            statusJaCadastradoStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            statusJaCadastradoStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var tituloStyle = workbook.createCellStyle();
+            tituloStyle.setFont(fonte(workbook, COR_TITULO, true, 24));
+            tituloStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var geradoEmStyle = workbook.createCellStyle();
+            var geradoEmFont = (XSSFFont) workbook.createFont();
+            geradoEmFont.setItalic(true);
+            geradoEmFont.setFontHeightInPoints((short) 10);
+            geradoEmFont.setColor(new XSSFColor(COR_GERADO_EM, null));
+            geradoEmStyle.setFont(geradoEmFont);
+            geradoEmStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var kpiStyle = workbook.createCellStyle();
+            kpiStyle.setFont(fonte(workbook, COR_KPI, true, 24));
+            kpiStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var kpiEvidenciasStyle = workbook.createCellStyle();
+            kpiEvidenciasStyle.setFont(fonte(workbook, COR_KPI_EVIDENCIAS, true, 20));
+            kpiEvidenciasStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var rotuloKpiStyle = workbook.createCellStyle();
+            rotuloKpiStyle.setFont(fonte(workbook, COR_ROTULO_KPI, false, 11));
+            rotuloKpiStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var tituloSecaoStyle = workbook.createCellStyle();
+            tituloSecaoStyle.setFont(fonte(workbook, COR_TITULO, true, 14));
+            tituloSecaoStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            var headerTabelaStyle = workbook.createCellStyle();
+            headerTabelaStyle.setFont(headerFont);
+            headerTabelaStyle.setFillForegroundColor(new XSSFColor(COR_TABELA_HEADER, null));
+            headerTabelaStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            aplicarBorda(headerTabelaStyle);
+            headerTabelaStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerTabelaStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
             return new SectionStyles(
                 buildHeaderStyle(workbook, COR_IDENTIFICACAO, headerFont),
                 buildHeaderStyle(workbook, COR_COMPLEMENTAR, headerFont),
                 buildHeaderStyle(workbook, COR_EVIDENCIA, headerFont),
                 buildHeaderStyle(workbook, COR_INTELIGENCIA, headerFont),
-                hyperlinkStyle);
+                hyperlinkStyle,
+                celulaStyle,
+                celulaCentroStyle,
+                statusIneditoStyle,
+                statusJaCadastradoStyle,
+                tituloStyle,
+                geradoEmStyle,
+                kpiStyle,
+                kpiEvidenciasStyle,
+                rotuloKpiStyle,
+                tituloSecaoStyle,
+                headerTabelaStyle);
+        }
+
+        private static Font fonte(SXSSFWorkbook workbook, byte[] rgb, boolean bold) {
+            return fonte(workbook, rgb, bold, 11);
+        }
+
+        private static Font fonte(SXSSFWorkbook workbook, byte[] rgb, boolean bold, int tamanho) {
+            var font = (XSSFFont) workbook.createFont();
+            font.setColor(new XSSFColor(rgb, null));
+            font.setBold(bold);
+            font.setFontHeightInPoints((short) tamanho);
+            return font;
+        }
+
+        private static void aplicarBorda(CellStyle style) {
+            var xssf = (XSSFCellStyle) style;
+            xssf.setBorderTop(BorderStyle.THIN);
+            xssf.setBorderBottom(BorderStyle.THIN);
+            xssf.setBorderLeft(BorderStyle.THIN);
+            xssf.setBorderRight(BorderStyle.THIN);
+            var cor = new XSSFColor(COR_BORDA, null);
+            xssf.setTopBorderColor(cor);
+            xssf.setBottomBorderColor(cor);
+            xssf.setLeftBorderColor(cor);
+            xssf.setRightBorderColor(cor);
         }
 
         private static CellStyle buildHeaderStyle(SXSSFWorkbook workbook, byte[] rgb, Font font) {
@@ -499,6 +735,10 @@ public class PlanilhaService {
             style.setFont(font);
             style.setFillForegroundColor(new XSSFColor(rgb, null));
             style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            aplicarBorda(style);
+            style.setAlignment(HorizontalAlignment.CENTER);
+            style.setVerticalAlignment(VerticalAlignment.CENTER);
+            style.setWrapText(true);
             return style;
         }
     }

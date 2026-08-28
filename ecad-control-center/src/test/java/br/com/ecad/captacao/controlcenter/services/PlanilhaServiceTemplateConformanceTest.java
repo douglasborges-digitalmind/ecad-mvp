@@ -80,16 +80,16 @@ class PlanilhaServiceTemplateConformanceTest {
     void abaResumoDeveTerLayoutHorizontalDoTemplate() throws Exception {
         try (var workbook = gerarPlanilhaVazia()) {
             var sheet = workbook.getSheet("Resumo Executivo");
-            // Linha 1 (index 0): título em B1
-            assertEquals("CAPTURA DE EVENTOS — RESUMO EXECUTIVO", sheet.getRow(0).getCell(1).getStringCellValue());
-            // Linha 2 (index 1): "Gerado em: ..." em B2
-            var geracao = sheet.getRow(1).getCell(1).getStringCellValue();
+            // Linha 1 (index 0): título em A1, mesclado A1:H1
+            assertEquals("CAPTURA DE EVENTOS — RESUMO EXECUTIVO", sheet.getRow(0).getCell(0).getStringCellValue());
+            // Linha 2 (index 1): "Gerado em: ..." em A2, mesclado A2:H2
+            var geracao = sheet.getRow(1).getCell(0).getStringCellValue();
             assertEquals(true, geracao.startsWith("Gerado em: "));
             // Linha 4 (index 3): KPIs em B, D, F, H
             assertEquals("0", sheet.getRow(3).getCell(1).getStringCellValue()); // total
             assertEquals("0", sheet.getRow(3).getCell(3).getStringCellValue()); // inéditos
             assertEquals("0", sheet.getRow(3).getCell(5).getStringCellValue()); // já cadastrados
-            assertEquals("0,0%", sheet.getRow(3).getCell(7).getStringCellValue()); // taxa
+            assertEquals("0.0%", sheet.getRow(3).getCell(7).getStringCellValue()); // taxa
             // Linha 5 (index 4): rótulos
             assertEquals("Total Capturado", sheet.getRow(4).getCell(1).getStringCellValue());
             assertEquals("Eventos INÉDITOS", sheet.getRow(4).getCell(3).getStringCellValue());
@@ -99,6 +99,23 @@ class PlanilhaServiceTemplateConformanceTest {
             assertEquals("0", sheet.getRow(6).getCell(1).getStringCellValue());
             // Linha 8 (index 7): rótulo
             assertEquals("Total de Evidências Coletadas", sheet.getRow(7).getCell(1).getStringCellValue());
+            // Linha 10 (index 9): título da distribuição por Status SGA
+            assertEquals("Distribuição por Status SGA (Deduplicação)", sheet.getRow(9).getCell(0).getStringCellValue());
+            // Linha 11 (index 10): cabeçalhos da tabela
+            assertEquals("Status SGA", sheet.getRow(10).getCell(0).getStringCellValue());
+            assertEquals("Quantidade", sheet.getRow(10).getCell(1).getStringCellValue());
+            assertEquals("% do Total", sheet.getRow(10).getCell(2).getStringCellValue());
+            // Linhas 12-13 (index 11-12): INÉDITO, JÁ CADASTRADO
+            assertEquals("INÉDITO", sheet.getRow(11).getCell(0).getStringCellValue());
+            assertEquals("JÁ CADASTRADO", sheet.getRow(12).getCell(0).getStringCellValue());
+            // Distribuição por Nível de Completude (linhas 15-19: Alto, Médio, Básico, Insuficiente)
+            assertEquals("Distribuição por Nível de Completude", sheet.getRow(14).getCell(0).getStringCellValue());
+            assertEquals("Nível", sheet.getRow(15).getCell(0).getStringCellValue());
+            assertEquals("Alto", sheet.getRow(16).getCell(0).getStringCellValue());
+            assertEquals("Insuficiente", sheet.getRow(19).getCell(0).getStringCellValue());
+            // Distribuição por Tipo de Fonte (título linha 21, header linha 22)
+            assertEquals("Distribuição por Tipo de Fonte", sheet.getRow(21).getCell(0).getStringCellValue());
+            assertEquals("Fonte Primária", sheet.getRow(22).getCell(0).getStringCellValue());
         }
     }
 
@@ -123,6 +140,8 @@ class PlanilhaServiceTemplateConformanceTest {
             assertEquals("R$ 50,00", row.getCell(14).getStringCellValue());
             assertEquals("INÉDITO", row.getCell(19).getStringCellValue());
             assertEquals("Alto", row.getCell(20).getStringCellValue());
+            // Magic Link no formato do template (sem "(linha X)")
+            assertEquals("Ver 1 evidência(s)", row.getCell(17).getStringCellValue());
 
             var sheetEvidencias = workbook.getSheet("Evidências");
             assertEquals(2, sheetEvidencias.getPhysicalNumberOfRows()); // header + 1 evidência
